@@ -187,10 +187,13 @@ def parallel_decorator(max_workers: int = 5, sleep_time: float = 10, key_paramet
     """
     def decorator(inner_method):
         @wraps(inner_method)
-        def wrapper(self, contact_dict, *args, **kwargs):
+        def wrapper(self, key_list, *args, **kwargs):
+            """
+            key_list: list of key values (e.g., uuids or emails)
+            """
             all_results = []
             item_count = 0
-            dict_length = len(contact_dict)
+            list_length = len(key_list)
 
             # Shared event and lock for barrier
             sleep_event = threading.Event()
@@ -249,7 +252,7 @@ def parallel_decorator(max_workers: int = 5, sleep_time: float = 10, key_paramet
                         return None
 
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                futures = {executor.submit(fetch, str(item[key_parameter])): item for item in contact_dict}
+                futures = {executor.submit(fetch, str(key_value)): key_value for key_value in key_list}
                 for future in as_completed(futures):
                     result = future.result()
 
@@ -266,7 +269,7 @@ def parallel_decorator(max_workers: int = 5, sleep_time: float = 10, key_paramet
                     item_count += 1
 
                     logging.info(
-                        f"{item_count}/{dict_length} - fetched contact {contact_id}")
+                        f"{item_count}/{list_length} - fetched {inner_method.__name__} for contact '{contact_id}'")
 
             logging.info(f"Fetched {len(all_results)} total items.")
 
