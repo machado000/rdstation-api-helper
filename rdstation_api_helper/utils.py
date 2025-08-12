@@ -253,6 +253,8 @@ def parallel_decorator(max_workers: int = 5, sleep_time: float = 10, key_paramet
                 for future in as_completed(futures):
                     result = future.result()
 
+                    contact_id = None
+
                     if result:
                         if isinstance(result, dict):
                             all_results.append(result)

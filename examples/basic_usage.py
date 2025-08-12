@@ -45,7 +45,7 @@ def main():
 
     contacts = df.to_dict(orient='records')
 
-    # 4. FETCH AND UPDATE CONTACTS DATA
+    # 4. FETCH CONTACTS DATA
     batch_size = 100
     batch_count, total_batches = 0, len(contacts) // batch_size + (1 if len(contacts) % batch_size > 0 else 0)
     row_count, total_rows = 0, len(contacts)
@@ -59,7 +59,7 @@ def main():
         logging.info(f"Progress: {batch_count}/{total_batches} batches, {row_count}/{total_rows} rows processed\n")
         sleep(30)
 
-    # 5. FETCH AND UPDATE CONTACTS EVENTS
+    # 5. FETCH CONTACTS EVENTS
     batch_size = 100
     batch_count, total_batches = 0, len(contacts) // batch_size + (1 if len(contacts) % batch_size > 0 else 0)
     row_count, total_rows = 0, len(contacts)
@@ -73,7 +73,7 @@ def main():
         logging.info(f"Progress: {batch_count}/{total_batches} batches, {row_count}/{total_rows} rows processed\n")
         sleep(30)
 
-    # 6. FETCH AND UPDATE CONTACTS FUNNEL STATUS
+    # 6. FETCH CONTACTS FUNNEL STATUS
     batch_size = 100
     batch_count, total_batches = 0, len(contacts) // batch_size + (1 if len(contacts) % batch_size > 0 else 0)
     row_count, total_rows = 0, len(contacts)
