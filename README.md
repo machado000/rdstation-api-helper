@@ -56,7 +56,6 @@ status_code, contact_data = client.get_contact_data("contact_uuid")
 # Fetch conversion events for a contact
 status_code, events = client.get_contact_events("some-contact_uuid")
 ```
-
 ## ORM Models
 
 The package provides SQLAlchemy ORM models for RD Station entities, which can be used for database integration.
@@ -68,13 +67,50 @@ The package provides SQLAlchemy ORM models for RD Station entities, which can be
 - `ConversionEvents`
 - `Lead`
 
-
 ## Examples
 
 Check the `examples/` directory for comprehensive usage examples:
 
 - `basic_usage.py` - Simple report extraction
 
+## Parallel & Batch Fetching
+
+The library provides a `parallel_decorator` utility to easily parallelize API calls for batch data fetching. This is used in the following methods of `RDStationAPI`:
+
+- `get_contact_data_parallel(uuids: list[str])`
+- `get_contact_events_parallel(uuids: list[str])`
+- `get_contact_funnel_status_parallel(uuids: list[str])`
+
+These methods accept a list of UUIDs and fetch the corresponding data in parallel, handling rate limits and transient errors automatically. The decorator coordinates retries for 429/5xx/network errors and ensures each result is tagged with its UUID.
+
+### Usage Example
+
+```python
+from rdstation_api_helper import RDStationAPI
+
+client = RDStationAPI()
+uuids = ["uuid1", "uuid2", "uuid3"]
+
+# Fetch contact data in parallel
+_, contact_results = client.get_contact_data_parallel(uuids)
+
+# Fetch contact events in parallel
+_, events_results = client.get_contact_events_parallel(uuids)
+
+# Fetch funnel status in parallel
+_, funnel_results = client.get_contact_funnel_status_parallel(uuids)
+
+print(contact_results)
+print(events_results)
+print(funnel_results)
+```
+
+**Features:**
+- Automatic parallelization with configurable worker count
+- Handles 429/5xx/network errors with coordinated retries
+- Appends the UUID to each result for traceability
+
+See the `rdstation_api_helper/utils.py` source for details.
 
 ## Requirements
 
@@ -88,13 +124,6 @@ Check the `examples/` directory for comprehensive usage examples:
 ## License
 
 This project is licensed under the GPL License. See [LICENSE](LICENSE) file for details.
-
-
-## Support
-
-- [Documentation](https://github.com/machado000/rdstation-api-helper#readme)
-- [Issues](https://github.com/machado000/rdstation-api-helper/issues)
-- [Examples](examples/)
 
 
 ## Contributing
