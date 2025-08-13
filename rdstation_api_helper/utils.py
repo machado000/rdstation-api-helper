@@ -10,6 +10,7 @@ import threading
 import time
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
 from functools import wraps
 from pathlib import Path
 from sqlalchemy import Engine, create_engine, Table, MetaData, select
@@ -72,27 +73,6 @@ def load_credentials(config_path: Optional[str] = None) -> dict[str, Any]:
 
     raise ConfigurationError(
         f"Could not find credentials file in any of these locations: {paths_to_try}"
-    )
-
-
-def setup_logging(level: int = logging.INFO,
-                  format_string: Optional[str] = None) -> None:
-    """
-    Setup logging configuration.
-
-    Args:
-        level (int): Logging level (default: INFO)
-        format_string (Optional[str]): Custom format string
-    """
-    if format_string is None:
-        format_string = '%(levelname)s - %(message)s'
-
-    logging.basicConfig(
-        level=level,
-        format=format_string,
-        handlers=[
-            logging.StreamHandler(),
-        ]
     )
 
 
@@ -304,23 +284,125 @@ def save_backup_files(engine: Engine) -> None:
         json.dump(data, f, indent=4, ensure_ascii=False, default=str)
 
 
-class PostgresDB:
+@dataclass
+class PgConfig:
+    """
+    PostgreSQL database configuration dataclass.
 
-    def __init__(self) -> None:
-        self.db_host = os.getenv("PGHOST")
-        self.db_port = os.getenv("PGPORT")
-        self.db_name = os.getenv("PGDATABASE")
-        self.db_user = os.getenv("PGUSER")
-        self.db_pass = os.getenv("PGPASSWORD")
-        self.engine = self.create_engine()
+    This class encapsulates all PostgreSQL connection parameters, automatically
+    loading them from environment variables with sensible defaults where applicable.
+
+    Attributes:
+        host: PostgreSQL server hostname or IP address
+        port: PostgreSQL server port number (default: "5432")
+        user: Database username for authentication
+        password: Database password for authentication
+        dbname: Name of the target database
+
+    Environment Variables:
+        PGHOST: Sets the host attribute
+        PGPORT: Sets the port attribute (default: "5432")
+        PGDATABASE: Sets the dbname attribute
+        PGUSER: Sets the user attribute
+        PGPASSWORD: Sets the password attribute
+
+    Example:
+        >>> config = PgConfig()
+        >>> print(config.uri())
+        'postgresql+psycopg2://user:pass@localhost:5432/mydb'
+
+    Note:
+        The port is stored as a string to match the format expected by
+        database URI construction and environment variable parsing.
+    """
+    host: str = os.getenv('PGHOST', '')
+    port: str = os.getenv('PGPORT', '5432')
+    dbname: str = os.getenv('PGDATABASE', '')
+    user: str = os.getenv('PGUSER', '')
+    password: str = os.getenv('PGPASSWORD', '')
+
+    def uri(self) -> str:
+        """
+        Generate a PostgreSQL connection URI string (Uniform Resource Identifier).
+
+        Constructs a SQLAlchemy-compatible PostgreSQL connection URI using the
+        psycopg2 driver from the configured connection parameters.
+
+        Returns:
+            A PostgreSQL connection URI string in the format:
+            'postgresql+psycopg2://user:password@host:port/database'
+
+        Example:
+            >>> config = PgConfig()
+            >>> config.host = "localhost"
+            >>> config.dbname = "mydb"
+            >>> config.user = "myuser"
+            >>> config.password = "mypass"
+            >>> config.uri()
+            'postgresql+psycopg2://myuser:mypass@localhost:5432/mydb'
+
+        Note:
+            This method does not perform any validation of the connection
+            parameters. Ensure all required fields (host, user, password, dbname)
+            are set before using the returned URI for database connections.
+        """
+        return f'postgresql+psycopg2://{self.user}:{self.password}@{self.host}:{self.port}/{self.dbname}'
+
+    def __str__(self) -> str:
+        """
+        Return a string representation of the configuration.
+
+        Returns a formatted string showing the connection details with
+        the password masked for security.
+
+        Returns:
+            A string representation with masked password.
+
+        Example:
+            >>> config = PgConfig()
+            >>> str(config)
+            'PgConfig(host=localhost, port=5432, user=myuser, password=****, dbname=mydb)'
+        """
+        masked_password = '****' if self.password else ''
+        return (f'PgConfig(host={self.host}, port={self.port}, user={self.user}, '
+                f'password={masked_password}, dbname={self.dbname})')
+
+
+class PostgresDB():
+
+    def __init__(self, config: Optional[PgConfig] = None, engine: Optional[Engine] = None) -> None:
+        """
+        Initialize PostgreSQL upsert client.
+
+        Args:
+            config: PostgreSQL configuration object. If None, default config will be used.
+            engine: SQLAlchemy engine instance. If provided, config will be ignored.
+            debug: Enable debug logging for detailed operation information.
+
+        Raises:
+            ValueError: If neither config nor engine is provided and default config fails.
+            PermissionError: If database user lacks CREATE TEMP TABLE privileges.
+        """
+        if engine:
+            self.engine = engine
+            logging.info("PostgreSQL upsert client initialized with provided engine")
+        else:
+            self.config = config or PgConfig()
+            self.engine = create_engine(self.config.uri())
+            logging.info(f"PostgreSQL upsert client initialized with config: {self.config.host}:{self.config.port}")
+
         self.Base = declarative_base()
 
     def create_engine(self) -> Engine:
-        uri: str = (
-            f"postgresql+psycopg2://{self.db_user}:{self.db_pass}@{self.db_host}:{self.db_port}/{self.db_name}"
-        )
-        engine = create_engine(uri)
-        return engine
+        """
+        Create a new SQLAlchemy engine using default configuration.
+
+        Returns:
+            SQLAlchemy Engine instance configured with default PostgreSQL settings.
+        """
+        uri = PgConfig().uri()
+        logging.debug(f"Creating new database engine with URI: {uri}")
+        return create_engine(uri)
 
     def create_tables(self) -> None:
         self.Base.metadata.create_all(self.engine)
