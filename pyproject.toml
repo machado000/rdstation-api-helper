@@ -29,7 +29,7 @@ dependencies = [
     "requests (>=2.32.4,<3.0.0)",
     "tqdm>=4.65.0",
     "sqlalchemy (>=2.0.42,<3.0.0)",
-    "psycopg2 (>=2.9.10,<3.0.0)",
+    "psycopg2-binary (>=2.9.10,<3.0.0)",
 ]
 
 [project.optional-dependencies]
