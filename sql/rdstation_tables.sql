@@ -4,8 +4,12 @@
 	such as leads, events, and synchronization metadata.
 */
 
+--------------------------------------------------------------------------------
+-- CREATE REQUIRED TABLES
+--------------------------------------------------------------------------------
 
--- Table structure for table "rd_segmentations"
+--------------------------------------------------------------------------------
+-- public.rd_segmentations definition
 CREATE TABLE public.rd_segmentations (
 	id text NOT NULL,
 	"name" text NULL,
@@ -17,8 +21,14 @@ CREATE TABLE public.rd_segmentations (
 	last_update timestamp DEFAULT timezone('America/Sao_Paulo'::text, CURRENT_TIMESTAMP) NULL,
 	CONSTRAINT rd_segmentations_pk PRIMARY KEY (id)
 );
+-- Table Triggers
+CREATE TRIGGER set_last_update BEFORE
+UPDATE
+    ON
+    public.rd_segmentations FOR EACH ROW EXECUTE FUNCTION update_last_update_column();
 
--- Table structure for table "rd_segmentation_contacts"
+--------------------------------------------------------------------------------
+-- public.rd_segmentation_contacts definition
 CREATE TABLE public.rd_segmentation_contacts (
 	"uuid" uuid NOT NULL,
 	"name" varchar(255) NULL,
@@ -33,8 +43,14 @@ CREATE TABLE public.rd_segmentation_contacts (
 	k text NULL,
 	CONSTRAINT rd_segmentation_contacts_pk PRIMARY KEY (uuid, segmentation_id)
 );
+-- Table Triggers
+CREATE TRIGGER set_last_update BEFORE
+UPDATE
+    ON
+    public.rd_segmentation_contacts FOR EACH ROW EXECUTE FUNCTION update_last_update_column();
 
--- Table structure for table "rd_contacts"
+--------------------------------------------------------------------------------
+-- public.rd_contacts definition
 CREATE TABLE public.rd_contacts (
 	"uuid" uuid NOT NULL,
 	email text NOT NULL,
@@ -69,8 +85,14 @@ CREATE TABLE public.rd_contacts (
 	last_update timestamp DEFAULT timezone('America/Sao_Paulo'::text, CURRENT_TIMESTAMP) NULL,
 	CONSTRAINT rd_contacts_pk PRIMARY KEY (uuid)
 );
+-- Table Triggers
+CREATE TRIGGER set_last_update BEFORE
+UPDATE
+    ON
+    public.rd_contacts FOR EACH ROW EXECUTE FUNCTION update_last_update_column();
 
--- Table structure for table "rd_conversion_events"
+--------------------------------------------------------------------------------
+-- public.rd_conversion_events definition
 CREATE TABLE public.rd_conversion_events (
 	"uuid" uuid NOT NULL,
 	event_type text NOT NULL,
@@ -88,27 +110,142 @@ CREATE TABLE public.rd_conversion_events (
 	last_update timestamp DEFAULT timezone('America/Sao_Paulo'::text, CURRENT_TIMESTAMP) NULL,
 	CONSTRAINT rd_conversion_events_pk PRIMARY KEY (uuid, event_type, event_timestamp)
 );
+CREATE INDEX idx_rd_conversion_events_event_identifier ON public.rd_conversion_events USING btree (event_identifier);
+CREATE INDEX idx_rd_conversion_events_uuid ON public.rd_conversion_events USING btree (uuid);
 
--- Table structure for table "rd_contact_funnel_status" 
+--------------------------------------------------------------------------------
+-- public.rd_contact_funnel_status definition
 CREATE TABLE public.rd_contact_funnel_status (
 	"uuid" uuid NOT NULL,
-	lifecycle_stage varchar(50) NULL,
+	lifecycle_stage text NULL,
 	opportunity bool NULL,
-	contact_owner_email varchar(255) NULL,
+	contact_owner_email text NULL,
 	interest int4 NULL,
 	fit int4 NULL,
-	origin varchar(255) NULL,
-    last_update timestamp NULL,
+	origin text NULL,
+	last_update timestamp DEFAULT timezone('America/Sao_Paulo'::text, CURRENT_TIMESTAMP) NULL,
 	CONSTRAINT rd_funnel_status_pkey PRIMARY KEY (uuid)
 );
+CREATE INDEX idx_rd_contact_funnel_status_uuid ON public.rd_contact_funnel_status USING btree (uuid);
+-- Table Triggers
+CREATE TRIGGER set_last_update BEFORE
+UPDATE
+    ON
+    public.rd_contact_funnel_status FOR EACH ROW EXECUTE FUNCTION update_last_update_column();
 
--- View structure for view "v_segmentation_contacts_unique"
-CREATE OR REPLACE VIEW public.v_segmentation_contacts_unique
-AS SELECT DISTINCT uuid,
-    name,
-    email
-   FROM rd_segmentation_contacts;
+--------------------------------------------------------------------------------
+-- public.receita_por_procedimento_summary definition
+CREATE TABLE public.receita_por_procedimento_summary (
+	atend text NULL,
+	celular text NULL,
+	e_mail text NULL,
+	setor text NULL,
+	dt_lanca date NULL,
+	ajuste_semana text NULL,
+	considerar text NULL,
+	vl_total float8 NULL,
+	business_unit text NULL,
+	updated_at timestamp DEFAULT timezone('America/Sao_Paulo'::text, CURRENT_TIMESTAMP) NULL
+);
+-- Table Triggers
+CREATE TRIGGER set_updated_at BEFORE
+UPDATE
+    ON
+    public.receita_por_procedimento_summary FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+--------------------------------------------------------------------------------
+-- Table structure for table "dim_event_identifier"
+CREATE TABLE public.dim_event_identifier (
+	id serial4 NOT NULL,
+	event_identifier text NOT NULL,
+	active bool DEFAULT true NULL,
+	updated_at timestamp DEFAULT timezone('America/Sao_Paulo'::text, CURRENT_TIMESTAMP) NULL,
+	CONSTRAINT dim_event_identifier_unique UNIQUE (event_identifier)
+);
+CREATE INDEX idx_dim_event_identifier_active ON public.dim_event_identifier USING btree (event_identifier) WHERE (active = true);
+
+--------------------------------------------------------------------------------
+-- Table structure for table "rd_webhook"
+CREATE TABLE public.rd_webhook (
+	id int4 DEFAULT nextval('rd_webhooks_id_seq'::regclass) NOT NULL,
+	event_type text NULL,
+	entity_type text NULL,
+	event_identifier text NULL,
+	"timestamp" timestamptz NULL,
+	event_timestamp timestamptz NULL,
+	contato jsonb NULL,
+	inserted_at timestamptz DEFAULT timezone('America/Sao_Paulo'::text, CURRENT_TIMESTAMP) NULL,
+	"uuid" text GENERATED ALWAYS AS (contato ->> 'uuid'::text) STORED NULL,
+	CONSTRAINT rd_webhooks_pkey PRIMARY KEY (id)
+);
+
+--------------------------------------------------------------------------------
+-- Table structure for table "rd_webhook_v1"
+CREATE TABLE public.rd_webhook_v1 (
+	id int4 DEFAULT nextval('rd_webhooks_v1_id_seq'::regclass) NOT NULL,
+	lead_id text NOT NULL,
+	"uuid" uuid NOT NULL,
+	email text NULL,
+	"name" text NULL,
+	company text NULL,
+	job_title text NULL,
+	bio text NULL,
+	created_at timestamptz NULL,
+	opportunity bool NULL,
+	number_conversions int4 NULL,
+	user_email text NULL,
+	first_conversion jsonb NULL,
+	last_conversion jsonb NULL,
+	custom_fields jsonb NULL,
+	website text NULL,
+	personal_phone text NULL,
+	mobile_phone text NULL,
+	city text NULL,
+	state text NULL,
+	lead_stage text NULL,
+	tags jsonb NULL,
+	fit_score text NULL,
+	interest int4 NULL,
+	inserted_at timestamptz DEFAULT timezone('America/Sao_Paulo'::text, CURRENT_TIMESTAMP) NULL,
+	CONSTRAINT rd_webhooks_v1_pkey PRIMARY KEY (id)
+);
+
+--------------------------------------------------------------------------------
+-- CREATE REQUIRED VIEWS FOR DASHBOARDS
+--------------------------------------------------------------------------------
+
+-- View structure for view "v_rd_contacts_with_conversions"
+CREATE OR REPLACE VIEW public.v_rd_contacts_with_conversions
+AS SELECT ac.uuid,
+    ac.email,
+    COALESCE(ac.mobile_phone, ac.personal_phone) AS phone,
+    ac.business_unit,
+    COALESCE(ac.cf_especialidade_ls, ac.cf_especialidade) AS especialidade,
+    COALESCE(ac.cf_especie_ls, ac.cf_especie) AS especie,
+    COALESCE(ac.cf_exame_ls, ac.cf_exame) AS exame,
+    ac.cf_tipo_de_atendimento,
+    ac.cf_bu,
+    ac.cf_utm_source,
+    ac.cf_utm_medium,
+    ac.cf_utm_campaign,
+    ac.cf_id_do_lead,
+    ac.cf_origem_do_lead,
+    cfs.origin,
+    vc.event_identifier,
+    vc.event_timestamp,
+    vc.utm_source,
+    vc.utm_medium,
+    vc.utm_campaign,
+    vc.utm_term,
+    vc.utm_content
+   FROM rd_contacts ac
+     JOIN rd_conversion_events vc ON ac.uuid = vc.uuid
+     JOIN dim_event_identifier dei ON vc.event_identifier = dei.event_identifier AND dei.active = true
+     LEFT JOIN rd_contact_funnel_status cfs ON ac.uuid = cfs.uuid;
+
+--------------------------------------------------------------------------------
+-- CREATE REQUIRED FUNCTIONS AND TRIGGERS FOR TABLES
+--------------------------------------------------------------------------------
 
 -- Functions and Triggers for updating timestamp columns
 CREATE OR REPLACE FUNCTION public.update_updated_at_column()

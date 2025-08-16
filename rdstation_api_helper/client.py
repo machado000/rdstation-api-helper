@@ -5,11 +5,14 @@ import base64
 import json
 import logging
 import os
+import pandas as pd
 import re
 import requests
 import time
 
+from datetime import datetime
 from dotenv import load_dotenv
+from sqlalchemy import Engine
 from typing import Optional, Any
 from urllib.parse import unquote
 
@@ -355,6 +358,53 @@ class RDStationAPI:
             tuple[int, Optional[list[dict[str, Any]]]]: Status code and funnel status data.
         """
         return self.get_contact_funnel_status(uuid_value)
+
+    def get_webhook_events(self, start_date: str, end_date: Optional[str], engine: Engine,
+                           table_name: str = 'rd_webhook_v1', schema: str = 'public',
+                           api_version: str = 'v1') -> list[dict[str, Any]]:
+        """
+        Fetch webhook events from SQL Table within a specified date range.
+        Parameters:
+            start_date (str): Start date in ISO format (YYYY-MM-DD).
+            end_date (Optional[str]): End date in ISO format (YYYY-MM-DD). If None, uses today's date.
+        Returns:
+            list[dict[str, Any]]: List of webhook event objects.
+        """
+        if api_version == 'v1':
+            # For v1, extract 'created_at' from the JSONB column 'last_conversion'->'content'->>'created_at'
+            timestamp_column = "(last_conversion->'content'->>'created_at')"
+        else:
+            timestamp_column = 'event_timestamp'
+
+        # Validate table_name if user input (security)
+        if not re.match(r'^[A-Za-z0-9_]+$', table_name):
+            raise ValueError("Invalid table name.")
+
+        if end_date is None:
+            end_date = datetime.today().strftime("%Y-%m-%d")
+
+        # Check if start_date and end_date are valid ISO date strings (YYYY-MM-DD)
+        try:
+            datetime.strptime(start_date, "%Y-%m-%d")
+            datetime.strptime(end_date, "%Y-%m-%d")
+        except ValueError:
+            raise ValueError("start_date or end_date is not a valid ISO date (YYYY-MM-DD).")
+
+        # Add time boundaries to start_date and end_date
+        start_datetime = f"{start_date} 00:00:00"
+        end_datetime = f"{end_date} 23:59:59"
+
+        # Build query string
+        query = (
+            f"SELECT * FROM {schema}.{table_name} "
+            f"WHERE {timestamp_column}::timestamp >= %s AND {timestamp_column}::timestamp <= %s "
+        )
+
+        # Use start_datetime and end_datetime as parameters
+        df = pd.read_sql_query(query, engine, params=(start_datetime, end_datetime))
+
+        results = df.to_dict(orient='records')
+        return results  # type: ignore
 
     @staticmethod
     def process_in_batches(all_data: list, batch_size=500):

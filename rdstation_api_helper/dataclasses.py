@@ -60,6 +60,7 @@ class Contact(Base):
     name = Column(String, nullable=False)
     state = Column(String)
     city = Column(String)
+    phone = Column(String)
     mobile_phone = Column(String)
     personal_phone = Column(String)
     tags = Column(JSON, default=[])
@@ -109,9 +110,9 @@ class ConversionEvents(Base):
     __tablename__ = "rd_conversion_events"
 
     uuid = Column(UUID, primary_key=True)
-    event_type = Column(String, primary_key=True)
+    event_type = Column(String)
     event_family = Column(String)
-    event_identifier = Column(String)
+    event_identifier = Column(String, primary_key=True)
     event_timestamp = Column(DateTime, primary_key=True)
     tags = Column(JSON, default=[])
     payload = Column(JSON, default=[])

@@ -5,15 +5,14 @@ This example demonstrates the basic usage of the rdstation-api-helper package
 to extract data from RD Station API and save it as JSON or SQL Table.
 """
 import logging
-import pandas as pd
 
 from datetime import date, timedelta  # noqa
 from dotenv import load_dotenv
 from time import sleep
 
-from rdstation_api_helper import RDStationAPI
+from rdstation_api_helper import RDStationAPI, setup_logging
 from rdstation_api_helper.dataclasses import Segmentation, SegmentationContact, ContactFunnelStatus, Contact, ConversionEvents  # noqa
-from rdstation_api_helper.utils import PostgresDB, setup_logging
+from rdstation_api_helper.utils import PostgresDB
 
 
 def main():
@@ -24,40 +23,24 @@ def main():
     pgsql = PostgresDB()
     rd = RDStationAPI()
 
-    start_date, end_date = date.today() - timedelta(days=90), date.today()  # noqa
+    # Set up date range for fetching data
+    start_date = date.today() - timedelta(days=7)  # noqa
+    end_date = date.today()  # noqa
+    start_date_str = start_date.isoformat()
+    end_date_str = end_date.isoformat()
 
-    # 1. FETCH AND SAVE SEGMENTATIONS
-    all_segmentations = rd.get_segmentations(save_json_file=True)
+    # 1. LIST NEW UUIDs ON WEBHOOK EVENTS
+    new_events = rd.get_webhook_events(start_date_str, end_date_str, engine=pgsql.engine)
+    new_uuids = list({event['uuid'] for event in new_events if 'uuid' in event})
+    contacts = new_uuids
 
-    pgsql.save_to_sql(all_segmentations, Segmentation, upsert_values=True)
+    if not contacts:
+        logging.info(f"No new UUIDs found in webhook events between {start_date_str} and {end_date_str}.")
+        return
 
-    # 2. FETCH AND SAVE SEGMENTATIONS CONTACTS
-    exclude_list = ["exemplo", "excluir", "teste", "Todos os contatos da base de Leads"]
+    logging.info(f"Found {len(new_uuids)} new UUIDs from webhook events between {start_date_str} and {end_date_str}.")
 
-    valid_segmentations = [
-        seg for seg in all_segmentations
-        if not any(pattern.lower() in seg['name'].lower() for pattern in exclude_list)
-    ]
-
-    date_range_segmentations = [
-        seg for seg in valid_segmentations
-        if 'updated_at' in seg and start_date <= date.fromisoformat(seg['updated_at'][0:10]) <= end_date
-    ]
-
-    contacts = rd.get_segmentation_contacts(date_range_segmentations, limit=125, sleep_time=0.6, save_json_file=True)
-
-    pgsql.save_to_sql(contacts, SegmentationContact, upsert_values=True)
-
-    # 3. FETCH UNIQUE UUIDS
-
-    df = pd.DataFrame(contacts)
-    df_1 = df[['uuid']].drop_duplicates().reset_index(drop=True)
-    # df_1 = pd.read_sql_table('v_segmentation_contacts_unique', engine, columns=['uuid'])
-
-    contacts = df_1['uuid'].to_list()
-    logging.info(f"The number of 'segmentation_contacts' uniques uuids is: {len(contacts)}")
-
-    # 4. FETCH AND UPDATE CONTACTS DATA
+    # 2. FETCH AND UPDATE CONTACTS DATA
 
     # Process contacts in batches
     batch_size = 100
@@ -73,7 +56,7 @@ def main():
         logging.info(f"Progress: {batch_count}/{total_batches} batches, {row_count}/{total_rows} rows processed\n")
         sleep(30)
 
-    # 5. FETCH AND UPDATE CONTACTS EVENTS
+    # 3. FETCH AND UPDATE CONTACTS EVENTS
 
     # Process contacts in batches
     batch_size = 100
@@ -89,7 +72,7 @@ def main():
         logging.info(f"Progress: {batch_count}/{total_batches} batches, {row_count}/{total_rows} rows processed\n")
         sleep(30)
 
-    # 6. FETCH AND UPDATE CONTACTS FUNNEL STATUS
+    # 4. FETCH AND UPDATE CONTACTS FUNNEL STATUS
 
     # Process contacts in batches
     batch_size = 100
@@ -104,6 +87,28 @@ def main():
         row_count += len(batch)
         logging.info(f"Progress: {batch_count}/{total_batches} batches, {row_count}/{total_rows} rows processed\n")
         sleep(30)
+
+    # 5. FETCH AND SAVE SEGMENTATIONS
+    all_segmentations = rd.get_segmentations(save_json_file=True)
+
+    pgsql.save_to_sql(all_segmentations, Segmentation, upsert_values=True)
+
+    # 6. FETCH AND SAVE SEGMENTATIONS CONTACTS
+    exclude_list = ["exemplo", "excluir", "teste", "Todos os contatos da base de Leads"]
+
+    valid_segmentations = [
+        seg for seg in all_segmentations
+        if not any(pattern.lower() in seg['name'].lower() for pattern in exclude_list)
+    ]
+
+    date_range_segmentations = [
+        seg for seg in valid_segmentations
+        if 'updated_at' in seg and start_date <= date.fromisoformat(seg['updated_at'][0:10]) <= end_date
+    ]
+
+    contacts = rd.get_segmentation_contacts(date_range_segmentations, limit=125, sleep_time=0.6, save_json_file=True)
+
+    pgsql.save_to_sql(contacts, SegmentationContact, upsert_values=True)
 
 
 if __name__ == "__main__":
