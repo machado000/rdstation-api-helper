@@ -6,8 +6,10 @@ from sqlalchemy import (
     Column,
     Integer,
     String,
+    Text,
     Boolean,
     DateTime,
+    ARRAY,
     JSON,
     UUID,
 )
@@ -63,7 +65,7 @@ class Contact(Base):
     phone = Column(String)
     mobile_phone = Column(String)
     personal_phone = Column(String)
-    tags = Column(JSON, default=[])
+    tags = Column(ARRAY(Text), default=[])
     legal_bases = Column(JSON, default=[])
     links = Column(JSON, default=[])
     business_unit = Column(String)
