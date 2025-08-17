@@ -68,7 +68,6 @@ class Contact(Base):
     tags = Column(ARRAY(Text), default=[])
     legal_bases = Column(JSON, default=[])
     links = Column(JSON, default=[])
-    business_unit = Column(String)
     cf_especialidade_ls = Column(String)
     cf_especie_ls = Column(String)
     cf_exame_ls = Column(String)
