@@ -21,7 +21,6 @@ CREATE TABLE public.rd_segmentations (
 	last_update timestamp DEFAULT timezone('America/Sao_Paulo'::text, CURRENT_TIMESTAMP) NULL,
 	CONSTRAINT rd_segmentations_pk PRIMARY KEY (id)
 );
--- Table Triggers
 CREATE TRIGGER set_last_update BEFORE
 UPDATE
     ON
@@ -43,7 +42,6 @@ CREATE TABLE public.rd_segmentation_contacts (
 	k text NULL,
 	CONSTRAINT rd_segmentation_contacts_pk PRIMARY KEY (uuid, segmentation_id)
 );
--- Table Triggers
 CREATE TRIGGER set_last_update BEFORE
 UPDATE
     ON
@@ -59,10 +57,10 @@ CREATE TABLE public.rd_contacts (
 	city text NULL,
 	mobile_phone text NULL,
 	personal_phone text NULL,
-	tags jsonb NULL,
+	tags _text NULL,
 	legal_bases jsonb NULL,
 	links jsonb NULL,
-	business_unit text NULL,
+	k text NULL,
 	cf_especialidade_ls text NULL,
 	cf_especie_ls text NULL,
 	cf_exame_ls text NULL,
@@ -83,9 +81,9 @@ CREATE TABLE public.rd_contacts (
 	cf_plug_deal_pipeline text NULL,
 	cf_plug_lost_reason text NULL,
 	last_update timestamp DEFAULT timezone('America/Sao_Paulo'::text, CURRENT_TIMESTAMP) NULL,
+	phone text NULL,
 	CONSTRAINT rd_contacts_pk PRIMARY KEY (uuid)
 );
--- Table Triggers
 CREATE TRIGGER set_last_update BEFORE
 UPDATE
     ON
@@ -97,7 +95,7 @@ CREATE TABLE public.rd_conversion_events (
 	"uuid" uuid NOT NULL,
 	event_type text NOT NULL,
 	event_family text NULL,
-	event_identifier text NULL,
+	event_identifier text NOT NULL,
 	event_timestamp timestamptz NOT NULL,
 	payload jsonb NULL,
 	traffic_source jsonb NULL,
@@ -108,7 +106,8 @@ CREATE TABLE public.rd_conversion_events (
 	utm_content text NULL,
 	tags jsonb NULL,
 	last_update timestamp DEFAULT timezone('America/Sao_Paulo'::text, CURRENT_TIMESTAMP) NULL,
-	CONSTRAINT rd_conversion_events_pk PRIMARY KEY (uuid, event_type, event_timestamp)
+	utm_channel text NULL,
+	CONSTRAINT rd_conversion_events_pk PRIMARY KEY (uuid, event_identifier, event_timestamp)
 );
 CREATE INDEX idx_rd_conversion_events_event_identifier ON public.rd_conversion_events USING btree (event_identifier);
 CREATE INDEX idx_rd_conversion_events_uuid ON public.rd_conversion_events USING btree (uuid);
@@ -127,15 +126,168 @@ CREATE TABLE public.rd_contact_funnel_status (
 	CONSTRAINT rd_funnel_status_pkey PRIMARY KEY (uuid)
 );
 CREATE INDEX idx_rd_contact_funnel_status_uuid ON public.rd_contact_funnel_status USING btree (uuid);
--- Table Triggers
 CREATE TRIGGER set_last_update BEFORE
 UPDATE
     ON
     public.rd_contact_funnel_status FOR EACH ROW EXECUTE FUNCTION update_last_update_column();
 
 --------------------------------------------------------------------------------
--- public.receita_por_procedimento_summary definition
-CREATE TABLE public.receita_por_procedimento_summary (
+-- public.receita_por_procedimento definition
+CREATE TABLE public.receita_por_procedimento (
+	id serial4 NOT NULL,
+	atend text NULL,
+	a text NULL,
+	celular text NULL,
+	b text NULL,
+	c text NULL,
+	e_mail text NULL,
+	d text NULL,
+	cd_proced text NULL,
+	e text NULL,
+	procedimento text NULL,
+	f text NULL,
+	grupo text NULL,
+	g text NULL,
+	h text NULL,
+	setor text NULL,
+	i text NULL,
+	j text NULL,
+	k text NULL,
+	l text NULL,
+	dt_lanca date NULL,
+	m text NULL,
+	n text NULL,
+	o text NULL,
+	hora text NULL,
+	p text NULL,
+	qtd numeric NULL,
+	q text NULL,
+	vl_uni numeric NULL,
+	u text NULL,
+	v text NULL,
+	x text NULL,
+	vl_total numeric NULL,
+	ajuste_unidade numeric NULL,
+	ajuste_unidade_de_negocio text NULL,
+	ajuste_semana text NULL,
+	lead_telefone text NULL,
+	lead_email text NULL,
+	considerar text NULL,
+	spreadsheet_key text NULL,
+	file_name text NULL,
+	read_at timestamp NULL,
+	updated_at timestamp DEFAULT timezone('America/Sao_Paulo'::text, CURRENT_TIMESTAMP) NULL,
+	CONSTRAINT receita_por_procedimento_pkey PRIMARY KEY (id)
+);
+
+--------------------------------------------------------------------------------
+-- public.campaign_mapping definition
+CREATE TABLE public.campaign_mapping (
+	id serial4 NOT NULL,
+	business_unit text NULL,
+	campaign_name text NULL,
+	source_name text NULL,
+	e text NULL,
+	utm_campaign text NULL,
+	utm_source text NULL,
+	utm_channel text NULL,
+	utm_medium text NULL,
+	utm_content text NULL,
+	vincular_event_identifier _text NULL,
+	vincular_landing_page _text NULL,
+	vincular_tag _text NULL,
+	n text NULL,
+	o text NULL,
+	updated_at timestamp DEFAULT timezone('America/Sao_Paulo'::text, CURRENT_TIMESTAMP) NULL,
+	active bool DEFAULT true NULL,
+	CONSTRAINT campaign_mapping_id_pkey PRIMARY KEY (id),
+	CONSTRAINT campaign_mapping_unique UNIQUE (utm_campaign, utm_source)
+);
+
+--------------------------------------------------------------------------------
+-- public.dim_business_unit definition
+CREATE TABLE public.dim_business_unit (
+	id serial4 NOT NULL,
+	business_unit text NULL,
+	business_unit_name text NULL,
+	business_unit_tags _text NULL,
+	e text NULL,
+	f text NULL,
+	g text NULL,
+	updated_at timestamp DEFAULT timezone('America/Sao_Paulo'::text, CURRENT_TIMESTAMP) NULL,
+	CONSTRAINT dim_business_unit_id_pkey PRIMARY KEY (id)
+);
+CREATE TRIGGER set_updated_at BEFORE
+UPDATE
+    ON
+    public.dim_business_unit FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+--------------------------------------------------------------------------------
+-- public.dim_contact_origin definition
+CREATE TABLE public.dim_contact_origin (
+	id serial4 NOT NULL,
+	origin text NOT NULL,
+	utm_source text NULL,
+	utm_channel text NULL,
+	utm_medium text NULL,
+	active bool DEFAULT true NULL,
+	updated_at timestamp DEFAULT timezone('America/Sao_Paulo'::text, CURRENT_TIMESTAMP) NULL,
+	CONSTRAINT dim_origin_unique UNIQUE (origin)
+);
+CREATE INDEX idx_dim_origin_active ON public.dim_contact_origin USING btree (origin) WHERE (active = true);
+
+--------------------------------------------------------------------------------
+-- public.dim_event_identifier definition
+CREATE TABLE public.dim_event_identifier (
+	id serial4 NOT NULL,
+	event_identifier text NOT NULL,
+	active bool DEFAULT true NULL,
+	updated_at timestamp DEFAULT timezone('America/Sao_Paulo'::text, CURRENT_TIMESTAMP) NULL,
+	event_name text NULL,
+	CONSTRAINT dim_event_identifier_unique UNIQUE (event_identifier)
+);
+CREATE INDEX dim_event_identifier_active_idx ON public.dim_event_identifier USING btree (event_identifier, active);
+
+--------------------------------------------------------------------------------
+-- public.rd_contacts_revised definition
+CREATE TABLE public.rd_contacts_revised (
+	"uuid" text NULL,
+	email text NULL,
+	phone text NULL,
+	tags text NULL,
+	especialidade text NULL,
+	especie text NULL,
+	exame text NULL,
+	first_event timestamptz NULL,
+	event_identifier text NULL,
+	utm_campaign text NULL,
+	utm_source text NULL,
+	utm_channel text NULL,
+	utm_medium text NULL,
+	last_event timestamptz NULL,
+	event_count int8 NULL
+);
+
+--------------------------------------------------------------------------------
+-- public.rd_leads_revised definition
+CREATE TABLE public.rd_leads_revised (
+	"uuid" text NULL,
+	business_unit text NULL,
+	tags text NULL,
+	origin text NULL,
+	event_identifier text NULL,
+	event_timestamp timestamptz NULL,
+	utm_source text NULL,
+	utm_medium text NULL,
+	utm_campaign text NULL,
+	utm_term text NULL,
+	utm_content text NULL,
+	utm_channel text NULL
+);
+
+--------------------------------------------------------------------------------
+-- public.receita_por_procedimento_revised definition
+CREATE TABLE public.receita_por_procedimento_revised (
 	atend text NULL,
 	celular text NULL,
 	e_mail text NULL,
@@ -145,24 +297,8 @@ CREATE TABLE public.receita_por_procedimento_summary (
 	considerar text NULL,
 	vl_total float8 NULL,
 	business_unit text NULL,
-	updated_at timestamp DEFAULT timezone('America/Sao_Paulo'::text, CURRENT_TIMESTAMP) NULL
+	"uuid" text NULL
 );
--- Table Triggers
-CREATE TRIGGER set_updated_at BEFORE
-UPDATE
-    ON
-    public.receita_por_procedimento_summary FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
---------------------------------------------------------------------------------
--- Table structure for table "dim_event_identifier"
-CREATE TABLE public.dim_event_identifier (
-	id serial4 NOT NULL,
-	event_identifier text NOT NULL,
-	active bool DEFAULT true NULL,
-	updated_at timestamp DEFAULT timezone('America/Sao_Paulo'::text, CURRENT_TIMESTAMP) NULL,
-	CONSTRAINT dim_event_identifier_unique UNIQUE (event_identifier)
-);
-CREATE INDEX idx_dim_event_identifier_active ON public.dim_event_identifier USING btree (event_identifier) WHERE (active = true);
 
 --------------------------------------------------------------------------------
 -- Table structure for table "rd_webhook"
@@ -214,34 +350,41 @@ CREATE TABLE public.rd_webhook_v1 (
 -- CREATE REQUIRED VIEWS FOR DASHBOARDS
 --------------------------------------------------------------------------------
 
--- View structure for view "v_rd_contacts_with_conversions"
-CREATE OR REPLACE VIEW public.v_rd_contacts_with_conversions
-AS SELECT ac.uuid,
-    ac.email,
-    COALESCE(ac.mobile_phone, ac.personal_phone) AS phone,
-    ac.business_unit,
-    COALESCE(ac.cf_especialidade_ls, ac.cf_especialidade) AS especialidade,
-    COALESCE(ac.cf_especie_ls, ac.cf_especie) AS especie,
-    COALESCE(ac.cf_exame_ls, ac.cf_exame) AS exame,
-    ac.cf_tipo_de_atendimento,
-    ac.cf_bu,
-    ac.cf_utm_source,
-    ac.cf_utm_medium,
-    ac.cf_utm_campaign,
-    ac.cf_id_do_lead,
-    ac.cf_origem_do_lead,
-    cfs.origin,
-    vc.event_identifier,
-    vc.event_timestamp,
-    vc.utm_source,
-    vc.utm_medium,
-    vc.utm_campaign,
-    vc.utm_term,
-    vc.utm_content
-   FROM rd_contacts ac
-     JOIN rd_conversion_events vc ON ac.uuid = vc.uuid
-     JOIN dim_event_identifier dei ON vc.event_identifier = dei.event_identifier AND dei.active = true
-     LEFT JOIN rd_contact_funnel_status cfs ON ac.uuid = cfs.uuid;
+-- public.v_rd_contacts_summarized source
+CREATE OR REPLACE VIEW public.v_rd_contacts_summarized
+AS SELECT DISTINCT uuid,
+    email,
+    phone,
+    tags,
+    especialidade,
+    especie,
+    exame,
+    first_event,
+    event_identifier,
+    utm_campaign,
+    utm_source,
+    utm_channel,
+    utm_medium,
+    last_event,
+    event_count
+   FROM ( SELECT rc.uuid,
+            rc.email,
+            COALESCE(rc.phone, rc.mobile_phone, rc.personal_phone) AS phone,
+            rc.tags,
+            COALESCE(rc.cf_especialidade_ls, rc.cf_especialidade) AS especialidade,
+            COALESCE(rc.cf_especie_ls, rc.cf_especie) AS especie,
+            COALESCE(rc.cf_exame_ls, rc.cf_exame) AS exame,
+            min(rce.event_timestamp) OVER (PARTITION BY rc.uuid) AS first_event,
+            first_value(rce.event_identifier) OVER (PARTITION BY rc.uuid ORDER BY rce.event_timestamp) AS event_identifier,
+            first_value(rce.utm_campaign) OVER (PARTITION BY rc.uuid ORDER BY rce.event_timestamp) AS utm_campaign,
+            first_value(rce.utm_source) OVER (PARTITION BY rc.uuid ORDER BY rce.event_timestamp) AS utm_source,
+            first_value(rce.utm_channel) OVER (PARTITION BY rc.uuid ORDER BY rce.event_timestamp) AS utm_channel,
+            first_value(rce.utm_medium) OVER (PARTITION BY rc.uuid ORDER BY rce.event_timestamp) AS utm_medium,
+            max(rce.event_timestamp) OVER (PARTITION BY rc.uuid) AS last_event,
+            count(rce.event_identifier) OVER (PARTITION BY rc.uuid) AS event_count
+           FROM rd_contacts rc
+             LEFT JOIN rd_conversion_events rce ON rc.uuid = rce.uuid
+             LEFT JOIN dim_event_identifier dei ON rce.event_identifier = dei.event_identifier AND dei.active = true) t;
 
 --------------------------------------------------------------------------------
 -- CREATE REQUIRED FUNCTIONS AND TRIGGERS FOR TABLES

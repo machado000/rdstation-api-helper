@@ -1,6 +1,6 @@
 [project]
 name = "rdstation-api-helper"
-version = "1.1.0"
+version = "1.1.1"
 description = "ETL module for RD Station API database-optimized DataFrame processing"
 authors = [{ name = "Joao Brito"}]
 readme = "README.md"
@@ -14,7 +14,6 @@ classifiers = [
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10", 
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -23,13 +22,12 @@ classifiers = [
     "Typing :: Typed"
 ]
 dependencies = [
-    "logging (>=0.4.9.6,<0.5.0.0)",
-    "pandas>=2.0.0",
-    "python-dotenv>=1.0.0",
+    "pandas (>=2.3.2,<3.0.0)",
+    "python-dotenv (>=1.1.1,<2.0.0)",
     "requests (>=2.32.4,<3.0.0)",
-    "tqdm>=4.65.0",
     "sqlalchemy (>=2.0.42,<3.0.0)",
     "psycopg2-binary (>=2.9.10,<3.0.0)",
+    "tqdm (>=4.67.1,<5.0.0)",
 ]
 
 [project.optional-dependencies]

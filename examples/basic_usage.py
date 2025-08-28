@@ -24,7 +24,7 @@ def main():
     rd = RDStationAPI()
 
     # Set up date range for fetching data
-    start_date = date.today() - timedelta(days=7)  # noqa
+    start_date = date.today() - timedelta(days=1)  # noqa
     end_date = date.today()  # noqa
     start_date_str = start_date.isoformat()
     end_date_str = end_date.isoformat()
@@ -89,7 +89,7 @@ def main():
         sleep(30)
 
     # 5. FETCH AND SAVE SEGMENTATIONS
-    all_segmentations = rd.get_segmentations(save_json_file=True)
+    all_segmentations = rd.get_segmentations(save_json_file=False)
 
     pgsql.save_to_sql(all_segmentations, Segmentation, upsert_values=True)
 
@@ -106,7 +106,7 @@ def main():
         if 'updated_at' in seg and start_date <= date.fromisoformat(seg['updated_at'][0:10]) <= end_date
     ]
 
-    contacts = rd.get_segmentation_contacts(date_range_segmentations, limit=125, sleep_time=0.6, save_json_file=True)
+    contacts = rd.get_segmentation_contacts(date_range_segmentations, limit=125, sleep_time=0.6, save_json_file=False)
 
     pgsql.save_to_sql(contacts, SegmentationContact, upsert_values=True)
 
