@@ -97,7 +97,7 @@ def load_from_json_file(filepath: str) -> list[dict[str, Any]]:
         data = json.load(f)
 
     logging.info(f"Data loaded from `{filepath}`")
-    return data
+    return data  # type: ignore[no-any-return]
 
 
 def save_to_json_file(json_data: list[dict[str, Any]], filepath: str) -> None:
@@ -158,16 +158,16 @@ def append_to_json_file(json_data: list[dict[str, Any]], filepath: str) -> None:
         logging.info("An error occurred:", e)
 
 
-def parallel_decorator(max_workers: int = 5, sleep_time: float = 10, key_parameter: str = "uuid"):
+def parallel_decorator(max_workers: int = 5, sleep_time: float = 10, key_parameter: str = "uuid") -> Any:
     """
     Decorator to parallelize a functions that fetches data for a single item (uuid).
     The decorated function should return (status_code, data).
     The decorated function can be called with a list of dicts (each with key_parameter),
     and will return a list of results, handling 429/5xx/network errors with a barrier.
     """
-    def decorator(inner_method):
+    def decorator(inner_method: Any) -> Any:
         @wraps(inner_method)
-        def wrapper(self, key_list, *args, **kwargs):
+        def wrapper(self: Any, key_list: list[str], *args: Any, **kwargs: Any) -> tuple[None, list[Any]]:
             """
             key_list: list of key values (e.g., uuids or emails)
             """
@@ -178,9 +178,9 @@ def parallel_decorator(max_workers: int = 5, sleep_time: float = 10, key_paramet
             # Shared event and lock for barrier
             sleep_event = threading.Event()
             sleep_lock = threading.Lock()
-            sleep_until = [0]  # mutable container for timestamp
+            sleep_until: list[float] = [0.0]  # mutable container for timestamp
 
-            def barrier(wait_time):
+            def barrier(wait_time: float) -> None:
                 with sleep_lock:
                     now = time.time()
                     target = now + wait_time
@@ -195,7 +195,7 @@ def parallel_decorator(max_workers: int = 5, sleep_time: float = 10, key_paramet
                     time.sleep(min(1, remaining))
                 sleep_event.clear()
 
-            def fetch(key_value):
+            def fetch(key_value: str) -> Any:
                 while True:
                     try:
                         code, data = inner_method(self, key_value, *args, **kwargs)
@@ -407,7 +407,7 @@ class PostgresDB():
     def create_tables(self) -> None:
         self.Base.metadata.create_all(self.engine)
 
-    def save_to_sql(self, json_data: list[dict[str, Any]], dataclass,
+    def save_to_sql(self, json_data: list[dict[str, Any]], dataclass: Any,
                     upsert_values: bool = False, flatten: bool = False) -> None:
 
         logging.info(f"Inserting data for {dataclass.__name__}...")

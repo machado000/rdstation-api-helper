@@ -10,9 +10,11 @@ A Python library for interacting with the RD Station API, providing ORM models, 
 ## Features
 
 - **RD Station API v2 support**: Query segmentations, contacts, leads, and conversion events
+- **Batch & Parallel Fetching**: Utilities for efficient data extraction with configurable workers
+- **Robust Error Handling**: Comprehensive error handling and retry logic with coordinated barriers
+- **Webhook Data Processing**: Fetch and process webhook events from SQL databases
+- **PostgreSQL Integration**: Built-in PostgreSQL utilities for data storage and retrieval
 - **ORM Models**: SQLAlchemy models for RD Station entities (Segmentation, Contact, Lead, etc.)
-- **Batch & Parallel Fetching**: Utilities for efficient data extraction
-- **Robust Error Handling**: Comprehensive error handling and retry logic
 - **Logging & Config Utilities**: Easy configuration and logging
 - **Type Hints**: Full type hint support for better IDE experience
 
@@ -55,6 +57,21 @@ status_code, contact_data = client.get_contact_data("contact_uuid")
 
 # Fetch conversion events for a contact
 status_code, events = client.get_contact_events("some-contact_uuid")
+
+# Fetch webhook events from database
+from rdstation_api_helper.utils import PostgresDB, PgConfig
+
+# Initialize database connection
+db = PostgresDB()
+
+# Fetch webhook events within date range
+webhook_events = client.get_webhook_events(
+    start_date="2025-08-01",
+    end_date="2025-08-28", 
+    engine=db.engine,
+    table_name="rd_webhook_v1",
+    api_version="v1"
+)
 ```
 ## ORM Models
 
@@ -66,6 +83,30 @@ The package provides SQLAlchemy ORM models for RD Station entities, which can be
 - `ContactFunnelStatus`
 - `ConversionEvents`
 - `Lead`
+
+## Database Integration
+
+The library includes PostgreSQL utilities for easy database integration:
+
+```python
+from rdstation_api_helper.utils import PostgresDB, PgConfig
+
+# Using environment variables (PGHOST, PGPORT, PGDATABASE, PGUSER, PGPASSWORD)
+db = PostgresDB()
+
+# Or with custom configuration
+config = PgConfig(
+    host="localhost",
+    port="5432", 
+    dbname="mydb",
+    user="myuser",
+    password="mypass"
+)
+db = PostgresDB(config=config)
+
+# Save data to database with upsert support
+db.save_to_sql(data, Contact, upsert_values=True)
+```
 
 ## Examples
 
@@ -118,6 +159,8 @@ See the `rdstation_api_helper/utils.py` source for details.
 - pandas >= 2.0.0
 - python-dotenv >= 1.0.0
 - requests >= 2.32.4
+- sqlalchemy >= 2.0.0
+- psycopg2-binary >= 2.9.0
 - tqdm >= 4.65.0
 
 

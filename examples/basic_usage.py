@@ -10,15 +10,15 @@ from datetime import date, timedelta  # noqa
 from dotenv import load_dotenv
 from time import sleep
 
-from rdstation_api_helper import RDStationAPI, setup_logging
+from rdstation_api_helper import RDStationAPI
 from rdstation_api_helper.dataclasses import Segmentation, SegmentationContact, ContactFunnelStatus, Contact, ConversionEvents  # noqa
 from rdstation_api_helper.utils import PostgresDB
 
 
-def main():
+def main() -> None:
 
     load_dotenv()
-    setup_logging(level=logging.INFO)
+    logging.basicConfig(level=logging.INFO)
 
     pgsql = PostgresDB()
     rd = RDStationAPI()

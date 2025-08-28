@@ -29,7 +29,7 @@ class RDStationAPI:
     as well as utilities for batch processing and decoding data.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Initialize the RDStationAPI instance and load credentials from environment variables.
         Automatically fetches an access token for API requests.
@@ -71,7 +71,7 @@ class RDStationAPI:
             token = response.json().get("access_token")
             if not token:
                 raise AuthenticationError("No access_token found in RD Station API response.")
-            return token
+            return str(token)
 
         elif response.status_code == 400:
             raise AuthenticationError(f"Authentication failed: {response.text}")
@@ -92,7 +92,7 @@ class RDStationAPI:
         logging.info("Fetching segmentations...")
 
         url = "https://api.rd.services/platform/segmentations"
-        params = {"page": 1, "page_size": 100}
+        params: dict[str, int] = {"page": 1, "page_size": 100}
         headers = {"Authorization": f"Bearer {self.RD_API_TOKEN}"}
 
         all_results = []
@@ -113,7 +113,8 @@ class RDStationAPI:
             # Add current page's data to the results
             all_results.extend(segmentations)
 
-            params["page"] += 1  # Increment the page number
+            current_page = params["page"]
+            params["page"] = current_page + 1  # Increment the page number
 
             if num_items < 100:  # Break if no items was less than a full page
                 break
@@ -155,7 +156,7 @@ class RDStationAPI:
             segmentation_name = item["name"]
 
             url = f"https://api.rd.services/platform/segmentations/{segmentation_id}/contacts"
-            params = {"page": 1, "page_size": limit, "order": "last_conversion_date"}
+            params: dict[str, Any] = {"page": 1, "page_size": limit, "order": "last_conversion_date"}
             headers = {"Authorization": f"Bearer {self.RD_API_TOKEN}"}
 
             while True:
@@ -186,7 +187,8 @@ class RDStationAPI:
                 # Add current page's data to the results
                 all_results.extend(contacts)
 
-                params["page"] += 1  # Increment the page number
+                current_page = params["page"]
+                params["page"] = current_page + 1  # Increment the page number
 
                 if num_items < limit:  # Break if no items was less than a full page
                     break
@@ -224,7 +226,7 @@ class RDStationAPI:
             raise
 
     @parallel_decorator(max_workers=3, sleep_time=20, key_parameter="uuid")
-    def get_contact_data_parallel(self, uuid_value):
+    def get_contact_data_parallel(self, uuid_value: str) -> tuple[int, Optional[list[dict[str, Any]]]]:
         """
         Parallelized version of get_contact_data for batch processing.
 
@@ -249,7 +251,7 @@ class RDStationAPI:
         url = f"https://api.rd.services/platform/contacts/{uuid_value}/events?event_type=CONVERSION"
         headers = {"Authorization": f"Bearer {self.RD_API_TOKEN}"}
 
-        def decode_traffic_source(encoded_str):
+        def decode_traffic_source(encoded_str: str) -> Optional[dict[str, Any]]:
             try:
                 # Remove 'encoded_' prefix if present
                 if encoded_str.startswith("encoded_"):
@@ -260,14 +262,15 @@ class RDStationAPI:
                     encoded_str += '=' * (4 - missing_padding)
                 decoded_bytes = base64.b64decode(encoded_str)
                 decoded_str = decoded_bytes.decode("utf-8")
-                return json.loads(decoded_str)
+                decoded_data = json.loads(decoded_str)
+                return decoded_data if isinstance(decoded_data, dict) else None
             except Exception as e:
                 logging.info(f"Failed to decode traffic_source: {e}")
                 return None
 
-        def extract_utm_params(traffic_source_string):
+        def extract_utm_params(traffic_source_string: Optional[str]) -> dict[str, Optional[str]]:
             utm_keys = ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content"]
-            utm_dict = {k: None for k in utm_keys}
+            utm_dict: dict[str, Optional[str]] = {k: None for k in utm_keys}
             if not traffic_source_string:
                 return utm_dict
             # Split by '&', then '='
@@ -312,7 +315,7 @@ class RDStationAPI:
             raise
 
     @parallel_decorator(max_workers=3, sleep_time=20, key_parameter="uuid")
-    def get_contact_events_parallel(self, uuid_value):
+    def get_contact_events_parallel(self, uuid_value: str) -> tuple[int, Optional[list[dict[str, Any]]]]:
         """
         Parallelized version of get_contact_events for batch processing.
 
@@ -347,7 +350,7 @@ class RDStationAPI:
             raise
 
     @parallel_decorator(max_workers=3, sleep_time=20, key_parameter="uuid")
-    def get_contact_funnel_status_parallel(self, uuid_value):
+    def get_contact_funnel_status_parallel(self, uuid_value: str) -> tuple[int, Optional[list[dict[str, Any]]]]:
         """
         Parallelized version of get_contact_funnel_status for batch processing.
 
@@ -407,7 +410,7 @@ class RDStationAPI:
         return results  # type: ignore
 
     @staticmethod
-    def process_in_batches(all_data: list, batch_size=500):
+    def process_in_batches(all_data: list, batch_size: int = 500) -> Any:
         """
         Generator to yield batches of data for processing.
 

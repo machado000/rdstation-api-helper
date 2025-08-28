@@ -2,6 +2,8 @@
 SQLAlchemy ORM models for RD Station entities.
 """
 
+from typing import Any
+
 from sqlalchemy import (
     Column,
     Integer,
@@ -19,7 +21,7 @@ from sqlalchemy.orm import declarative_base
 Base = declarative_base()
 
 
-class Segmentation(Base):
+class Segmentation(Base):  # type: ignore[valid-type,misc]
     """
     ORM model for an RD Station segmentation entity.
     """
@@ -34,7 +36,7 @@ class Segmentation(Base):
     links = Column(JSON, default=[])
 
 
-class SegmentationContact(Base):
+class SegmentationContact(Base):  # type: ignore[valid-type,misc]
     """
     ORM model for a contact within an RD Station segmentation.
     """
@@ -51,7 +53,7 @@ class SegmentationContact(Base):
     business_unit = Column(String(50))
 
 
-class Contact(Base):
+class Contact(Base):  # type: ignore[valid-type,misc]
     """
     ORM model for an RD Station contact entity.
     """
@@ -65,7 +67,7 @@ class Contact(Base):
     phone = Column(String)
     mobile_phone = Column(String)
     personal_phone = Column(String)
-    tags = Column(ARRAY(Text), default=[])
+    tags: Any = Column(ARRAY(Text), default=[])
     legal_bases = Column(JSON, default=[])
     links = Column(JSON, default=[])
     cf_especialidade_ls = Column(String)
@@ -89,7 +91,7 @@ class Contact(Base):
     cf_plug_lost_reason = Column(String)
 
 
-class ContactFunnelStatus(Base):
+class ContactFunnelStatus(Base):  # type: ignore[valid-type,misc]
     """
     ORM model for a contact's funnel status in RD Station.
     """
@@ -104,7 +106,7 @@ class ContactFunnelStatus(Base):
     origin = Column(String(50))
 
 
-class ConversionEvents(Base):
+class ConversionEvents(Base):  # type: ignore[valid-type,misc]
     """
     ORM model for conversion events associated with a contact in RD Station.
     """
@@ -125,7 +127,7 @@ class ConversionEvents(Base):
     utm_content = Column(String)
 
 
-class Lead(Base):
+class Lead(Base):  # type: ignore[valid-type,misc]
     """
     ORM model for a lead entity in RD Station.
     """
@@ -136,4 +138,4 @@ class Lead(Base):
     name = Column(String)
     unidade = Column(String)
     ano_interesse = Column(String, primary_key=True)
-    tags = Column(JSON)
+    tags = Column(JSON, default=[])

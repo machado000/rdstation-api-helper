@@ -1,6 +1,6 @@
 [project]
 name = "rdstation-api-helper"
-version = "1.1.1"
+version = "1.1.2"
 description = "ETL module for RD Station API database-optimized DataFrame processing"
 authors = [{ name = "Joao Brito"}]
 readme = "README.md"
@@ -47,6 +47,10 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 packages = [{ include = "rdstation_api_helper" }]
+
+[tool.poetry.group.dev.dependencies]
+mypy = "^1.17.1"
+types-requests = "^2.32.4.20250809"
 
 [tool.mypy]
 python_version = "3.10"
