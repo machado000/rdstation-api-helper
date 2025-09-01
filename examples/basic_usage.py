@@ -11,8 +11,8 @@ from dotenv import load_dotenv
 from time import sleep
 
 from rdstation_api_helper import RDStationAPI
-from rdstation_api_helper.dataclasses import Segmentation, SegmentationContact, ContactFunnelStatus, Contact, ConversionEvents  # noqa
-from rdstation_api_helper.utils import PostgresDB
+from rdstation_api_helper.utils import get_webhook_events
+from pgsql_upserter import UpsertEngine
 
 
 def main() -> None:
@@ -20,17 +20,19 @@ def main() -> None:
     load_dotenv()
     logging.basicConfig(level=logging.INFO)
 
-    pgsql = PostgresDB()
+    # pgsql = PostgresDB()
     rd = RDStationAPI()
+    upserter = UpsertEngine()
+    connection = upserter.create_connection()
 
     # Set up date range for fetching data
-    start_date = date.today() - timedelta(days=1)  # noqa
+    start_date = date.today() - timedelta(days=2)  # noqa
     end_date = date.today()  # noqa
     start_date_str = start_date.isoformat()
     end_date_str = end_date.isoformat()
 
     # 1. LIST NEW UUIDs ON WEBHOOK EVENTS
-    new_events = rd.get_webhook_events(start_date_str, end_date_str, engine=pgsql.engine)
+    new_events = get_webhook_events(start_date_str, end_date_str, conn=connection)
     new_uuids = list({event['uuid'] for event in new_events if 'uuid' in event})
     contacts = new_uuids
 
@@ -50,7 +52,7 @@ def main() -> None:
     for batch_count, batch in enumerate(rd.process_in_batches(contacts, batch_size), start=1):
         _, contact_data = rd.get_contact_data_parallel(batch)
         if contact_data:
-            pgsql.save_to_sql(contact_data, Contact, upsert_values=True)
+            _ = upserter.upsert_data(connection, contact_data, 'rd_contacts')
 
         row_count += len(batch)
         logging.info(f"Progress: {batch_count}/{total_batches} batches, {row_count}/{total_rows} rows processed\n")
@@ -66,7 +68,7 @@ def main() -> None:
     for batch_count, batch in enumerate(rd.process_in_batches(contacts, batch_size), start=1):
         _, events_data = rd.get_contact_events_parallel(batch)
         if events_data:
-            pgsql.save_to_sql(events_data, ConversionEvents, upsert_values=True)
+            _ = upserter.upsert_data(connection, events_data, 'rd_conversion_events')
 
         row_count += len(batch)
         logging.info(f"Progress: {batch_count}/{total_batches} batches, {row_count}/{total_rows} rows processed\n")
@@ -82,7 +84,7 @@ def main() -> None:
     for batch_count, batch in enumerate(rd.process_in_batches(contacts, batch_size), start=1):
         _, funnel_status_data = rd.get_contact_funnel_status_parallel(batch)
         if funnel_status_data:
-            pgsql.save_to_sql(funnel_status_data, ContactFunnelStatus, upsert_values=True)
+            _ = upserter.upsert_data(connection, funnel_status_data, 'rd_contact_funnel_status')
 
         row_count += len(batch)
         logging.info(f"Progress: {batch_count}/{total_batches} batches, {row_count}/{total_rows} rows processed\n")
@@ -91,7 +93,8 @@ def main() -> None:
     # 5. FETCH AND SAVE SEGMENTATIONS
     all_segmentations = rd.get_segmentations(save_json_file=False)
 
-    pgsql.save_to_sql(all_segmentations, Segmentation, upsert_values=True)
+    if all_segmentations:
+        _ = upserter.upsert_data(connection, all_segmentations, 'rd_segmentations')
 
     # 6. FETCH AND SAVE SEGMENTATIONS CONTACTS
     exclude_list = ["exemplo", "excluir", "teste", "Todos os contatos da base de Leads"]
@@ -108,7 +111,8 @@ def main() -> None:
 
     contacts = rd.get_segmentation_contacts(date_range_segmentations, limit=125, sleep_time=0.6, save_json_file=False)
 
-    pgsql.save_to_sql(contacts, SegmentationContact, upsert_values=True)
+    if contacts:
+        _ = upserter.upsert_data(connection, contacts, 'rd_segmentation_contacts')
 
 
 if __name__ == "__main__":

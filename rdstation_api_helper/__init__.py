@@ -5,13 +5,11 @@ import logging
 from typing import Optional
 
 from .client import RDStationAPI
-from .dataclasses import (
-    Segmentation,
-    SegmentationContact,
-    Contact,
-    ContactFunnelStatus,
-    ConversionEvents,
-    Lead,
+from .utils import (
+    load_from_json_file,
+    save_to_json_file,
+    append_to_json_file,
+    get_webhook_events,
 )
 from .exceptions import (
     APIError,
@@ -20,27 +18,21 @@ from .exceptions import (
     DataProcessingError,
     ValidationError,
 )
-from .utils import PostgresDB, PgConfig
 
 # Main exports
 __all__ = [
     "RDStationAPI",
     # Utils
-    "PostgresDB",
-    "PgConfig",
+    "load_from_json_file",
+    "save_to_json_file",
+    "append_to_json_file",
+    "get_webhook_events",
     # Exceptions
     "AuthenticationError",
     "ValidationError",
     "APIError",
     "DataProcessingError",
     "ConfigurationError",
-    # Dataclasses
-    "Segmentation",
-    "SegmentationContact",
-    "Contact",
-    "ContactFunnelStatus",
-    "ConversionEvents",
-    "Lead",
     # __init__
     "setup_logging",
 ]

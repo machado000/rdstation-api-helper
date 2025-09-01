@@ -4,17 +4,15 @@ Utility functions for the RD Station API driver module.
 import json
 import logging
 import os
-import pandas as pd
+import re
 import requests
 import threading
 import time
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+from datetime import datetime
 from functools import wraps
 from pathlib import Path
-from sqlalchemy import Engine, create_engine, Table, MetaData, select
-from sqlalchemy.orm import sessionmaker, declarative_base
 from typing import Any, Optional
 
 from .exceptions import ConfigurationError
@@ -258,245 +256,51 @@ def parallel_decorator(max_workers: int = 5, sleep_time: float = 10, key_paramet
     return decorator
 
 
-def save_backup_files(engine: Engine) -> None:
-
-    output_path = Path("backups")
-    output_path.mkdir(parents=True, exist_ok=True)
-
-    df = pd.read_sql_table("rd_segmentations", engine, schema="public")
-    data = df.to_dict(orient="records")
-    with open("./backups/rd_segmentations.json", "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4, ensure_ascii=False, default=str)
-
-    df = pd.read_sql_table("rd_segmentation_contacts", engine, schema="public")
-    data = df.to_dict(orient="records")
-    with open("./backups/rd_segmentation_contacts.json", "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4, ensure_ascii=False, default=str)
-
-    df = pd.read_sql_table("rd_contacts", engine, schema="public")
-    data = df.to_dict(orient="records")
-    with open("./backups/rd_contacts.json", "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4, ensure_ascii=False, default=str)
-
-    df = pd.read_sql_table("rd_contact_funnel_status", engine, schema="public")
-    data = df.to_dict(orient="records")
-    with open("./backups/rd_contact_funnel_status.json", "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4, ensure_ascii=False, default=str)
-
-
-@dataclass
-class PgConfig:
+def get_webhook_events(start_date: str, end_date: Optional[str], conn,  # psycopg2 connection
+                       table_name: str = 'rd_webhook_v1', schema: str = 'public',
+                       api_version: str = 'v1') -> list[dict[str, Any]]:
     """
-    PostgreSQL database configuration dataclass.
-
-    This class encapsulates all PostgreSQL connection parameters, automatically
-    loading them from environment variables with sensible defaults where applicable.
-
-    Attributes:
-        host: PostgreSQL server hostname or IP address
-        port: PostgreSQL server port number (default: "5432")
-        user: Database username for authentication
-        password: Database password for authentication
-        dbname: Name of the target database
-
-    Environment Variables:
-        PGHOST: Sets the host attribute
-        PGPORT: Sets the port attribute (default: "5432")
-        PGDATABASE: Sets the dbname attribute
-        PGUSER: Sets the user attribute
-        PGPASSWORD: Sets the password attribute
-
-    Example:
-        >>> config = PgConfig()
-        >>> print(config.uri())
-        'postgresql+psycopg2://user:pass@localhost:5432/mydb'
-
-    Note:
-        The port is stored as a string to match the format expected by
-        database URI construction and environment variable parsing.
+    Fetch webhook events from SQL Table within a specified date range.
+    Parameters:
+        start_date (str): Start date in ISO format (YYYY-MM-DD).
+        end_date (Optional[str]): End date in ISO format (YYYY-MM-DD). If None, uses today's date.
+    Returns:
+        list[dict[str, Any]]: List of webhook event objects.
     """
-    host: str = os.getenv('PGHOST', '')
-    port: str = os.getenv('PGPORT', '5432')
-    dbname: str = os.getenv('PGDATABASE', '')
-    user: str = os.getenv('PGUSER', '')
-    password: str = os.getenv('PGPASSWORD', '')
+    if api_version == 'v1':
+        # For v1, extract 'created_at' from the JSONB column 'last_conversion'->'content'->>'created_at'
+        timestamp_column = "(last_conversion->'content'->>'created_at')"
+    else:
+        timestamp_column = 'event_timestamp'
 
-    def uri(self) -> str:
-        """
-        Generate a PostgreSQL connection URI string (Uniform Resource Identifier).
+    # Validate table_name if user input (security)
+    if not re.match(r'^[A-Za-z0-9_]+$', table_name):
+        raise ValueError("Invalid table name.")
 
-        Constructs a SQLAlchemy-compatible PostgreSQL connection URI using the
-        psycopg2 driver from the configured connection parameters.
+    if end_date is None:
+        end_date = datetime.today().strftime("%Y-%m-%d")
 
-        Returns:
-            A PostgreSQL connection URI string in the format:
-            'postgresql+psycopg2://user:password@host:port/database'
+    # Check if start_date and end_date are valid ISO date strings (YYYY-MM-DD)
+    try:
+        datetime.strptime(start_date, "%Y-%m-%d")
+        datetime.strptime(end_date, "%Y-%m-%d")
+    except ValueError:
+        raise ValueError("start_date or end_date is not a valid ISO date (YYYY-MM-DD).")
 
-        Example:
-            >>> config = PgConfig()
-            >>> config.host = "localhost"
-            >>> config.dbname = "mydb"
-            >>> config.user = "myuser"
-            >>> config.password = "mypass"
-            >>> config.uri()
-            'postgresql+psycopg2://myuser:mypass@localhost:5432/mydb'
+    # Add time boundaries to start_date and end_date
+    start_datetime = f"{start_date} 00:00:00"
+    end_datetime = f"{end_date} 23:59:59"
 
-        Note:
-            This method does not perform any validation of the connection
-            parameters. Ensure all required fields (host, user, password, dbname)
-            are set before using the returned URI for database connections.
-        """
-        return f'postgresql+psycopg2://{self.user}:{self.password}@{self.host}:{self.port}/{self.dbname}'
+    # Build query string
+    query = (
+        f"SELECT * FROM {schema}.{table_name} "
+        f"WHERE {timestamp_column}::timestamp >= %s AND {timestamp_column}::timestamp <= %s "
+    )
 
-    def __str__(self) -> str:
-        """
-        Return a string representation of the configuration.
-
-        Returns a formatted string showing the connection details with
-        the password masked for security.
-
-        Returns:
-            A string representation with masked password.
-
-        Example:
-            >>> config = PgConfig()
-            >>> str(config)
-            'PgConfig(host=localhost, port=5432, user=myuser, password=****, dbname=mydb)'
-        """
-        masked_password = '****' if self.password else ''
-        return (f'PgConfig(host={self.host}, port={self.port}, user={self.user}, '
-                f'password={masked_password}, dbname={self.dbname})')
-
-
-class PostgresDB():
-
-    def __init__(self, config: Optional[PgConfig] = None, engine: Optional[Engine] = None) -> None:
-        """
-        Initialize PostgreSQL upsert client.
-
-        Args:
-            config: PostgreSQL configuration object. If None, default config will be used.
-            engine: SQLAlchemy engine instance. If provided, config will be ignored.
-            debug: Enable debug logging for detailed operation information.
-
-        Raises:
-            ValueError: If neither config nor engine is provided and default config fails.
-            PermissionError: If database user lacks CREATE TEMP TABLE privileges.
-        """
-        if engine:
-            self.engine = engine
-            logging.info("PostgreSQL upsert client initialized with provided engine")
-        else:
-            self.config = config or PgConfig()
-            self.engine = create_engine(self.config.uri())
-            logging.info(f"PostgreSQL upsert client initialized with config: {self.config.host}:{self.config.port}")
-
-        self.Base = declarative_base()
-
-    def create_engine(self) -> Engine:
-        """
-        Create a new SQLAlchemy engine using default configuration.
-
-        Returns:
-            SQLAlchemy Engine instance configured with default PostgreSQL settings.
-        """
-        uri = PgConfig().uri()
-        logging.debug(f"Creating new database engine with URI: {uri}")
-        return create_engine(uri)
-
-    def create_tables(self) -> None:
-        self.Base.metadata.create_all(self.engine)
-
-    def save_to_sql(self, json_data: list[dict[str, Any]], dataclass: Any,
-                    upsert_values: bool = False, flatten: bool = False) -> None:
-
-        logging.info(f"Inserting data for {dataclass.__name__}...")
-
-        if not json_data:
-            logging.info(f"No data to insert for {dataclass.__name__}. Skipping.")
-            return
-
-        # If flatten is True, normalize the JSON structure
-        df = pd.json_normalize(json_data, sep="_") if flatten else pd.DataFrame(json_data)
-
-        # Replace all NaN/NaT with None so they become SQL NULL
-        df = df.where(pd.notnull(df), None)
-
-        allowed_keys = {c.name for c in dataclass.__table__.columns}
-        extra_keys = set(df.columns) - allowed_keys
-        primary_keys = [key.name for key in dataclass.__table__.primary_key]
-
-        # Drop duplicates based on primary_keys
-        if primary_keys:
-            df = df.drop_duplicates(subset=primary_keys)
-
-        if extra_keys:
-            logging.info(f"Keys in json_data not in allowed_keys: {extra_keys}")
-
-        bulk_data = [
-            {str(k): v for k, v in row.items() if str(k) in allowed_keys}
-            for row in df.to_dict(orient="records")
-        ]
-
-        Session = sessionmaker(bind=self.engine)
-        session = Session()
-
-        try:
-            if upsert_values:
-                from sqlalchemy.dialects.postgresql import insert
-
-                stmt = insert(dataclass).values(bulk_data)
-                stmt = stmt.on_conflict_do_update(
-                    index_elements=primary_keys,
-                    set_={
-                        c.name: getattr(stmt.excluded, c.name)
-                        for c in dataclass.__table__.columns
-                        if c.name not in primary_keys
-                    },
-                )
-                session.execute(stmt)
-            else:
-                session.bulk_insert_mappings(dataclass, bulk_data)
-            session.commit()
-            logging.info(f"Data successfully inserted {len(df)} rows on {dataclass.__tablename__}.")
-
-        except Exception as e:
-            session.rollback()
-            logging.error(f"An error occurred: {e}")
-
-        finally:
-            session.close()
-
-    def _get_unique_segmentation_contacts(self, name_pattern: str) -> list:
-        """Fetch unique contacts from the database efficiently."""
-        Session = sessionmaker(bind=self.engine)
-        session = Session()
-
-        # Define the table dynamically
-        metadata = MetaData()
-        table = Table("rd_segmentation_contacts", metadata, autoload_with=self.engine)
-
-        try:
-            # Use a faster search method instead of LOWER()
-            name_pattern = "%" if name_pattern is None else f"%{name_pattern}%"
-
-            # Properly reference table columns instead of raw strings
-            query = (
-                select(table.c.uuid, table.c.email)
-                .distinct()
-                .where(
-                    table.c.segmentation_name.ilike(name_pattern)  # Case-insensitive search
-                )
-            )
-
-            result = session.execute(query)
-            unique_contacts = [
-                {"uuid": row.uuid, "email": row.email} for row in result.fetchall()
-            ]
-
-        finally:
-            session.close()
-
-        logging.info(f"Query returned {len(unique_contacts):,} unique contacts.")
-
-        return unique_contacts
+    # Use start_datetime and end_datetime as parameters
+    with conn.cursor() as cur:
+        cur.execute(query, (start_datetime, end_datetime))
+        columns = [desc[0] for desc in cur.description]
+        rows = cur.fetchall()
+        results = [dict(zip(columns, row)) for row in rows]
+    return results
