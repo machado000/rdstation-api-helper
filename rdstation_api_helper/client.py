@@ -281,8 +281,12 @@ class RDStationAPI:
         try:
             response = requests.get(url, headers=headers)
             status_code = response.status_code
-            data = response.json()
 
+            # Return early for non-200 status codes
+            if status_code != 200:
+                return status_code, None
+
+            data = response.json()
             if not isinstance(data, list):
                 data = [data]
 

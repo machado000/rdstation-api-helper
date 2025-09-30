@@ -218,11 +218,16 @@ def parallel_decorator(max_workers: int = 5, sleep_time: float = 10, key_paramet
                                         item[key_parameter] = key_value
                         return data
 
+                    elif status_code == 404:
+                        logging.info(f"Contact {key_value} not found (HTTP 404). Skipping.")
+                        return None
+
                     elif status_code == 429 or (500 <= status_code < 600):
                         logging.warning(
                             f"Worker for {key_value} got status {status_code}, sleeping all workers for {sleep_time} sec."  # noqa
                         )
                         barrier(sleep_time)
+
                     else:
                         logging.info(
                             f"Failed to fetch {key_value}, HTTP {status_code}. Skipping."
