@@ -215,8 +215,13 @@ class RDStationAPI:
 
         try:
             response = requests.get(url, headers=headers)
+            status_code = response.status_code
 
-            return response.status_code, response.json()
+            # Return early for non-200 status codes
+            if status_code != 200:
+                return status_code, None
+
+            return status_code, response.json()
 
         except requests.exceptions.RequestException as e:
             logging.info(f"Request failed for {uuid_value}: {e}.")
@@ -343,8 +348,13 @@ class RDStationAPI:
 
         try:
             response = requests.get(url, headers=headers)
+            status_code = response.status_code
 
-            return response.status_code, response.json()
+            # Return early for non-200 status codes
+            if status_code != 200:
+                return status_code, None
+
+            return status_code, response.json()
 
         except requests.exceptions.RequestException as e:
             logging.info(f"Request failed for {uuid_value}: {e}.")
