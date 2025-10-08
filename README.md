@@ -155,7 +155,7 @@ See the `rdstation_api_helper/utils.py` source for details.
 
 ## Requirements
 
-- Python 3.10-3.12
+- Python 3.11-3.14
 - pandas >= 2.0.0
 - python-dotenv >= 1.0.0
 - requests >= 2.32.4
